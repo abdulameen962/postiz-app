@@ -14,28 +14,11 @@ services:
       - postiz-network
       - temporal-network
     depends_on:
-      postiz-postgres:
-        condition: service_healthy
       postiz-redis:
         condition: service_healthy
+      temporal:
+        condition: service_started
 
-  postiz-postgres:
-    image: postgres:17-alpine
-    container_name: postiz-postgres
-    restart: always
-    environment:
-      POSTGRES_PASSWORD: postiz-password
-      POSTGRES_USER: postiz-user
-      POSTGRES_DB: postiz-db-local
-    volumes:
-      - postgres-volume:/var/lib/postgresql/data
-    networks:
-      - postiz-network
-    healthcheck:
-      test: pg_isready -U postiz-user -d postiz-db-local
-      interval: 10s
-      timeout: 3s
-      retries: 3
   postiz-redis:
     image: redis:7.2
     container_name: postiz-redis
@@ -50,7 +33,6 @@ services:
     networks:
       - postiz-network
 
-  # For Application Monitoring / Debugging
   spotlight:
     pull_policy: always
     container_name: spotlight
@@ -66,6 +48,7 @@ services:
   temporal-elasticsearch:
     container_name: temporal-elasticsearch
     image: elasticsearch:7.17.27
+    restart: always
     environment:
       - cluster.routing.allocation.disk.threshold_enabled=true
       - cluster.routing.allocation.disk.watermark.low=512mb
@@ -79,11 +62,12 @@ services:
     expose:
       - 9200
     volumes:
-      - /var/lib/elasticsearch/data
+      - temporal-es-data:/usr/share/elasticsearch/data
 
   temporal-postgresql:
     container_name: temporal-postgresql
     image: postgres:16
+    restart: always
     environment:
       POSTGRES_PASSWORD: temporal
       POSTGRES_USER: temporal
@@ -92,10 +76,11 @@ services:
     expose:
       - 5432
     volumes:
-      - /var/lib/postgresql/data
+      - temporal-pg-data:/var/lib/postgresql/data
 
   temporal:
     container_name: temporal
+    restart: always
     ports:
       - '7233:7233'
     image: temporalio/auto-setup:1.28.1
@@ -117,12 +102,11 @@ services:
       - temporal-network
     volumes:
       - ./dynamicconfig:/etc/temporal/config/dynamicconfig
-    labels:
-      kompose.volume.type: configMap
 
   temporal-admin-tools:
     container_name: temporal-admin-tools
     image: temporalio/admin-tools:1.28.1-tctl-1.18.4-cli-1.4.1
+    restart: always
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CLI_ADDRESS=temporal:7233
@@ -136,6 +120,7 @@ services:
   temporal-ui:
     container_name: temporal-ui
     image: temporalio/ui:2.34.0
+    restart: always
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://127.0.0.1:3000
@@ -146,20 +131,13 @@ services:
 
 volumes:
   postgres-volume:
-    external: false
-
   postiz-redis-data:
-    external: false
-
   postiz-config:
-    external: false
-
   postiz-uploads:
-    external: false
+  temporal-es-data:
+  temporal-pg-data:
 
 networks:
   postiz-network:
-    external: false
   temporal-network:
     driver: bridge
-    name: temporal-network
