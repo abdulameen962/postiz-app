@@ -26,7 +26,7 @@ import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorato
 export const META_GRAPH_API_VERSION = 'v25.0';
 
 @Rules(
-  "Facebook posts can be text only, or include photos or a video. If it's a story, it must have at least one attachment (photo or video), and each media is published as a separate story."
+  "Facebook posts can be text only, or include photos or a video. If it's a story, it must have at least one attachment (photo or video), and each media is published as a separate story. Video posts (not stories) can carry an optional title."
 )
 export class FacebookProvider extends SocialAbstract implements SocialProvider {
   identifier = 'facebook';
@@ -64,7 +64,7 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
     status: number
   ):
     | {
-        type: 'refresh-token' | 'bad-body';
+        type: 'refresh-token' | 'bad-body' | 'retry';
         value: string;
       }
     | undefined {
@@ -112,9 +112,11 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
       };
     }
 
+    // code 368 "Temporarily blocked for policies violations" (subcode
+    // 1390008): Meta documents it as temporary, "wait and retry the operation"
     if (body.indexOf('1390008') > -1) {
       return {
-        type: 'bad-body' as const,
+        type: 'retry' as const,
         value: 'You are posting too fast, please slow down',
       };
     }
@@ -227,6 +229,43 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
       return {
         type: 'bad-body' as const,
         value: 'Facebook return: No permission to publish the video',
+      };
+    }
+    if (/"error_subcode":459\b/.test(body)) {
+      return {
+        type: 'bad-body' as const,
+        value:
+          'Facebook is asking you to resolve a security check. Log in at facebook.com, complete it, then try again',
+      };
+    }
+    if (/"error_subcode":492\b/.test(body)) {
+      return {
+        type: 'bad-body' as const,
+        value:
+          'Your Facebook user no longer has a role on this Page. Ask a Page admin to grant you a role, then reconnect the channel',
+      };
+    }
+    if (body.indexOf('must be granted before impersonating') > -1) {
+      return {
+        type: 'refresh-token' as const,
+        value:
+          'Facebook Page permissions are missing, please reconnect the channel and allow all permissions',
+      };
+    }
+    if (
+      /"error_subcode":33\b/.test(body) &&
+      body.indexOf('does not exist') > -1
+    ) {
+      return {
+        type: 'bad-body' as const,
+        value:
+          'The Facebook Page or post this was targeting no longer exists, please reconnect the channel and schedule again',
+      };
+    }
+    if (body.indexOf('Sorry, something went wrong') > -1) {
+      return {
+        type: 'retry' as const,
+        value: 'Facebook is temporarily unavailable, please try again later',
       };
     }
     if (body.indexOf('490') > -1) {
@@ -415,6 +454,7 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
   async fetchPageInformation(accessToken: string, data: { page: string }) {
     const pageId = data.page;
     const fields = 'id,username,name,access_token,picture.type(large)';
+    let foundWithoutToken = false;
 
     const searchPaginated = async (startUrl: string) => {
       let url: string | undefined = startUrl;
@@ -424,7 +464,11 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
           const page = response.data.find(
             (p: any) => String(p.id) === String(pageId)
           );
-          if (page) {
+          // A page listed through a business the user has no role on comes
+          // back without a page token, keep looking for a listing that has one
+          if (page && !page.access_token) {
+            foundWithoutToken = true;
+          } else if (page) {
             return {
               id: page.id,
               name: page.name,
@@ -478,6 +522,12 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
       }
     } catch {
       // Business Manager API not available for all users
+    }
+
+    if (foundWithoutToken) {
+      throw new Error(
+        'Your Facebook user has no permission to manage this page. Ask a page admin for full content access, then reconnect the channel'
+      );
     }
 
     throw new Error('Page not found in your accounts');
@@ -797,6 +847,9 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
             body: JSON.stringify({
               file_url: firstPost?.media?.[0]?.path!,
               description: firstPost.message,
+              ...(firstPost?.settings?.title
+                ? { title: firstPost.settings.title }
+                : {}),
               published: true,
             }),
           },
