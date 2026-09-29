@@ -66,10 +66,10 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
     'openid',
     'profile',
     'w_member_social',
-    'r_basicprofile',
-    'rw_organization_admin',
-    'w_organization_social',
-    'r_organization_social',
+    // 'r_basicprofile',
+    // 'rw_organization_admin',
+    // 'w_organization_social',
+    // 'r_organization_social',
   ];
   override maxConcurrentJob = 2;
   refreshWait = true;
@@ -181,11 +181,10 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
   async generateAuthUrl() {
     const state = makeSecureId(6);
     const codeVerifier = makeSecureId(30);
-    const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${
-      process.env.LINKEDIN_CLIENT_ID
-    }&prompt=none&redirect_uri=${encodeURIComponent(
-      `${process.env.FRONTEND_URL}/integrations/social/linkedin`
-    )}&state=${state}&scope=${encodeURIComponent(this.scopes.join(' '))}`;
+    const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID
+      }&prompt=none&redirect_uri=${encodeURIComponent(
+        `${process.env.FRONTEND_URL}/integrations/social/linkedin`
+      )}&state=${state}&scope=${encodeURIComponent(this.scopes.join(' '))}`;
     return {
       url,
       codeVerifier,
@@ -203,8 +202,7 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
     body.append('code', params.code);
     body.append(
       'redirect_uri',
-      `${process.env.FRONTEND_URL}/integrations/social/linkedin${
-        params.refresh ? `?refresh=${params.refresh}` : ''
+      `${process.env.FRONTEND_URL}/integrations/social/linkedin${params.refresh ? `?refresh=${params.refresh}` : ''
       }`
     );
     body.append('client_id', process.env.LINKEDIN_CLIENT_ID!);
@@ -342,10 +340,10 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
                   : `urn:li:organization:${personId}`,
               ...(isVideo
                 ? {
-                    fileSizeBytes,
-                    uploadCaptions: false,
-                    uploadThumbnail: false,
-                  }
+                  fileSizeBytes,
+                  uploadCaptions: false,
+                  uploadThumbnail: false,
+                }
                 : {}),
             },
           }),
@@ -367,11 +365,11 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
         const body = Buffer.isBuffer(picture)
           ? picture.slice(i, i + chunkSize)
           : await this.mediaChunk(
-              picture.path,
-              i,
-              Math.min(i + chunkSize, fileSizeBytes) - 1,
-              this.identifier
-            );
+            picture.path,
+            i,
+            Math.min(i + chunkSize, fileSizeBytes) - 1,
+            this.identifier
+          );
 
         const upload = await this.fetch(
           sendUrlRequest,
@@ -796,9 +794,9 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
       {
         method: 'POST',
         headers: {
-        'LinkedIn-Version': '202306',
-        'X-Restli-Protocol-Version': '2.0.0',
-        'Content-Type': 'application/json',
+          'LinkedIn-Version': '202306',
+          'X-Restli-Protocol-Version': '2.0.0',
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
@@ -952,16 +950,15 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
           media.endpoint === 'videos'
             ? 'video'
             : media.endpoint === 'documents'
-            ? 'document'
-            : 'image';
+              ? 'document'
+              : 'image';
         throw new BadBody(
           this.identifier,
           JSON.stringify(status),
           '{}',
-          `LinkedIn ${label} processing failed${
-            status.processingFailureReason
-              ? `: ${status.processingFailureReason}`
-              : ''
+          `LinkedIn ${label} processing failed${status.processingFailureReason
+            ? `: ${status.processingFailureReason}`
+            : ''
           }`
         );
       }
