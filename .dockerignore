@@ -21,16 +21,3 @@ dist
 .git
 .github
 reports
-.next
-.turbo
-dist
-build
-coverage
-node_modules
-*.log
-.env
-.env.*
-!.env.example
-README.md
-Dockerfile
-docker-compose*.yml
