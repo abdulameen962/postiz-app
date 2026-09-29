@@ -5,6 +5,7 @@ import { zodResponseFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
 
 const openai = new OpenAI({
+  baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
   apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
 });
 
@@ -42,7 +43,7 @@ export class OpenaiService {
     const { clips } = (
       await openai.chat.completions.parse(
         {
-          model: 'gpt-4.1',
+          model: 'z-ai/glm-5.3-flash',
           messages: [
             {
               role: 'system',
@@ -57,8 +58,7 @@ Clips must not overlap. Write the title and the post in this language, whatever 
               content: `title: ${title}\n\n${segments
                 .map(
                   (p, index) =>
-                    `${index} [${p.start.toFixed(1)} - ${p.end.toFixed(1)}] ${
-                      p.text
+                    `${index} [${p.start.toFixed(1)} - ${p.end.toFixed(1)}] ${p.text
                     }`
                 )
                 .join('\n')}`,
@@ -81,7 +81,7 @@ Clips must not overlap. Write the title and the post in this language, whatever 
     const generate = (
       await openai.images.generate({
         prompt,
-        model: 'chatgpt-image-latest',
+        model: 'inclusionai/ming-image-0.1-design',
         size: isVertical ? '1024x1536' : '1024x1024',
       })
     ).data[0];
@@ -93,7 +93,7 @@ Clips must not overlap. Write the title and the post in this language, whatever 
     return (
       (
         await openai.chat.completions.parse({
-          model: 'gpt-4.1',
+          model: 'z-ai/glm-5.3-flash',
           messages: [
             {
               role: 'system',
@@ -114,7 +114,7 @@ Clips must not overlap. Write the title and the post in this language, whatever 
     return (
       (
         await openai.chat.completions.parse({
-          model: 'gpt-4.1',
+          model: 'z-ai/glm-5.3-flash',
           messages: [
             {
               role: 'system',
@@ -148,7 +148,7 @@ Clips must not overlap. Write the title and the post in this language, whatever 
           ],
           n: 5,
           temperature: 1,
-          model: 'gpt-4.1',
+          model: 'z-ai/glm-5.3-flash',
         }),
         openai.chat.completions.create({
           messages: [
@@ -164,7 +164,7 @@ Clips must not overlap. Write the title and the post in this language, whatever 
           ],
           n: 5,
           temperature: 1,
-          model: 'gpt-4.1',
+          model: 'z-ai/glm-5.3-flash',
         }),
       ])
     ).flatMap((p) => p.choices);
@@ -177,11 +177,11 @@ Clips must not overlap. Write the title and the post in this language, whatever 
         try {
           return JSON.parse(
             '[' +
-              content
-                ?.slice(start + 1, end)
-                .replace(/\n/g, ' ')
-                .replace(/ {2,}/g, ' ') +
-              ']'
+            content
+              ?.slice(start + 1, end)
+              .replace(/\n/g, ' ')
+              .replace(/ {2,}/g, ' ') +
+            ']'
           );
         } catch (e) {
           return [];
@@ -202,7 +202,7 @@ Clips must not overlap. Write the title and the post in this language, whatever 
           content,
         },
       ],
-      model: 'gpt-4.1',
+      model: 'z-ai/glm-5.3-flash',
     });
 
     const { content: articleContent } = websiteContent.choices[0].message;
@@ -222,13 +222,12 @@ Clips must not overlap. Write the title and the post in this language, whatever 
     const posts =
       (
         await openai.chat.completions.parse({
-          model: 'gpt-4.1',
+          model: 'z-ai/glm-5.3-flash',
           messages: [
             {
               role: 'system',
-              content: `You are an assistant that take a social media post and break it to a thread, each post must be minimum ${
-                len - 10
-              } and maximum ${len} characters, keeping the exact wording and break lines, however make sure you split posts based on context`,
+              content: `You are an assistant that take a social media post and break it to a thread, each post must be minimum ${len - 10
+                } and maximum ${len} characters, keeping the exact wording and break lines, however make sure you split posts based on context`,
             },
             {
               role: 'user',
@@ -255,7 +254,7 @@ Clips must not overlap. Write the title and the post in this language, whatever 
               return (
                 (
                   await openai.chat.completions.parse({
-                    model: 'gpt-4.1',
+                    model: 'z-ai/glm-5.3-flash',
                     messages: [
                       {
                         role: 'system',
@@ -291,7 +290,7 @@ Clips must not overlap. Write the title and the post in this language, whatever 
         const parse =
           (
             await openai.chat.completions.parse({
-              model: 'gpt-4.1',
+              model: 'z-ai/glm-5.3-flash',
               messages: [
                 {
                   role: 'system',
