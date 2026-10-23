@@ -5,6 +5,11 @@ services:
     restart: always
     env_file:
       - .env
+    environment:
+      # Cap each Node process (Frontend, Backend, Orchestrator) so they don't OOM kill port 3000
+      - NODE_OPTIONS=--max-old-space-size=384
+      - TEMPORAL_ADDRESS=temporal:7233
+      - REDIS_URL=redis://postiz-redis:6379
     volumes:
       - postiz-config:/config/
       - postiz-uploads:/uploads/
@@ -12,7 +17,6 @@ services:
       - '4007:5000'
     networks:
       - postiz-network
-      - temporal-network
     depends_on:
       postiz-redis:
         condition: service_healthy
@@ -20,11 +24,12 @@ services:
         condition: service_started
 
   postiz-redis:
-    image: redis:7.2
+    image: redis:7.2-alpine
     container_name: postiz-redis
     restart: always
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
     healthcheck:
-      test: redis-cli ping
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -33,31 +38,32 @@ services:
     networks:
       - postiz-network
 
-  # -----------------------
-  # Temporal Stack
-  # -----------------------
   temporal-postgresql:
     container_name: temporal-postgresql
-    image: postgres:16
+    image: postgres:16-alpine
     restart: always
+    command: postgres -c shared_buffers=64MB -c work_mem=4MB -c max_connections=50
     environment:
       POSTGRES_PASSWORD: temporal
       POSTGRES_USER: temporal
+      POSTGRES_DB: temporal
     networks:
-      - temporal-network
-    expose:
-      - 5432
+      - postiz-network
     volumes:
       - temporal-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   temporal:
     container_name: temporal
-    restart: always
-    ports:
-      - '7233:7233'
     image: temporalio/auto-setup:1.28.1
+    restart: always
     depends_on:
-      - temporal-postgresql
+      temporal-postgresql:
+        condition: service_healthy
     environment:
       - DB=postgres12
       - DB_PORT=5432
@@ -68,21 +74,9 @@ services:
       - ENABLE_ES=false
       - TEMPORAL_NAMESPACE=default
     networks:
-      - temporal-network
+      - postiz-network
     volumes:
       - ./dynamicconfig:/etc/temporal/config/dynamicconfig
-
-  temporal-ui:
-    container_name: temporal-ui
-    image: temporalio/ui:2.34.0
-    restart: always
-    environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CORS_ORIGINS=http://127.0.0.1:3000
-    networks:
-      - temporal-network
-    ports:
-      - '8080:8080'
 
 volumes:
   postiz-redis-data:
@@ -92,5 +86,4 @@ volumes:
 
 networks:
   postiz-network:
-  temporal-network:
     driver: bridge
