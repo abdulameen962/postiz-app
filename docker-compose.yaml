@@ -7,7 +7,7 @@ services:
       - .env
     environment:
       # Cap each Node process (Frontend, Backend, Orchestrator) so they don't OOM kill port 3000
-      - NODE_OPTIONS=--max-old-space-size=384
+      - NODE_OPTIONS=--max-old-space-size=768
       - TEMPORAL_ADDRESS=temporal:7233
       - REDIS_URL=redis://postiz-redis:6379
     volumes:
